@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat con Make Webhook</title>
+  <style>
+    /* Estilos básicos para centrar y diseñar el chat */
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .chat-container {
+      width: 400px;
+      background: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+    }
+    .chat-box {
+      overflow-y: auto;
+      max-height: 300px;
+      margin-bottom: 20px;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 10px;
+      background-color: #f9f9f9;
+    }
+    .chat-box p {
+      margin: 5px 0;
+    }
+    .chat-box .user-message {
+      color: #ffffff;
+      background-color: #4caf50;
+      padding: 8px;
+      border-radius: 5px;
+      align-self: flex-end;
+      max-width: 75%;
+    }
+    .chat-box .bot-message {
+      color: #333;
+      background-color: #e3e3e3;
+      padding: 8px;
+      border-radius: 5px;
+      align-self: flex-start;
+      max-width: 75%;
+    }
+    .chat-input-area {
+      display: flex;
+      gap: 10px;
+    }
+    .chat-input-area input {
+      flex: 1;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #ddd;
+    }
+    .chat-input-area button {
+      background-color: #007bff;
+      color: #ffffff;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .chat-input-area button:disabled {
+      background-color: #ddd;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <div class="chat-container">
+    <!-- Área donde se mostrarán las preguntas y respuestas -->
+    <div class="chat-box" id="chatBox"></div>
+    
+    <!-- Input y botón para enviar los mensajes -->
+    <div class="chat-input-area">
+      <input type="text" id="userInput" placeholder="Escribe tu pregunta aquí..." />
+      <button id="sendBtn">Enviar</button>
+    </div>
+  </div>
+
+<script>
+  // **Configuración inicial del chat**
+  const webhookURL = "https://hook.us2.make.com/o6r145lobkvkf9ugfdl32n87fhx9flyu"; // URL del webhook de Make
+  const chatBox = document.getElementById("chatBox"); // Elemento donde se mostrarán los mensajes
+  const userInput = document.getElementById("userInput"); // Campo de texto para el usuario
+  const sendBtn = document.getElementById("sendBtn"); // Botón para enviar el mensaje
+
+  // **Función: Mostrar mensajes en el chat**
+  // Esta función agrega un mensaje (del usuario o bot) al chatBox
+  function displayMessage(message, type) {
+    const messageElement = document.createElement("p");
+    messageElement.classList.add(type === "user" ? "user-message" : "bot-message");
+    messageElement.textContent = message;
+    chatBox.appendChild(messageElement);
+    chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll hacia abajo
+  }
+
+  // **Función: Manejo de errores si algo falla**
+  // Muestra un mensaje de error en el chat
+  function showError() {
+    displayMessage("Hubo un problema procesando tu consulta. Por favor, intenta de nuevo.", "bot");
+  }
+
+  // **Función principal: Enviar mensaje a Make y recibir respuesta**
+  async function sendMessage() {
+    // Obtenemos el mensaje del usuario
+    const userMessage = userInput.value.trim();
+    
+    if (!userMessage) return; // No enviar si el mensaje está vacío
+
+    // Mostrar el mensaje del usuario en el chat
+    displayMessage(userMessage, "user");
+
+    // Limpiamos el cuadro de entrada
+    userInput.value = "";
+    
+    // Deshabilitar el botón mientras esperamos la respuesta
+    sendBtn.disabled = true;
+
+    // Mostrar indicación de "procesando..."
+    const processingMessage = document.createElement("p");
+    processingMessage.textContent = "Procesando...";
+    processingMessage.classList.add("bot-message");
+    chatBox.appendChild(processingMessage);
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    // Enviar solicitud al webhook usando fetch
+    try {
+      const response = await fetch(webhookURL, {
+        method: "POST", // Método POST para enviar datos
+        headers: {
+          "Content-Type": "application/json" // Indicamos que estamos enviando JSON
+        },
+        body: JSON.stringify({
+          user_message: userMessage // Enviamos el mensaje como JSON
+        })
+      });
+
+      // Si Make responde correctamente
+      if (response.ok) {
+        const jsonResponse = await response.json(); // Parseamos la respuesta a JSON
+	console.log("Respuesta del servidor:", jsonResponse); // Log para depurar
+        const botMessage = jsonResponse.response || "No se recibió una respuesta del sistema.";
+        displayMessage(botMessage, "bot"); // Mostrar la respuesta del bot
+      } else {
+        showError(); // Manejo en caso de que Make devuelva un error
+      }
+    } catch (error) {
+      console.error("Error al enviar el mensaje:", error);
+      showError(); // Manejo en caso de fallo general
+    } finally {
+      // Limpiamos el mensaje de "Procesando..."
+      processingMessage.remove();
+
+      // Rehabilitamos el botón de enviar
+      sendBtn.disabled = false;
+    }
+  }
+
+  // **Agregar Event Listener para enviar mensaje al presionar el botón**
+  sendBtn.addEventListener("click", sendMessage);
+
+  // **Agregar Event Listener para enviar mensaje al presionar Enter**
+  userInput.addEventListener("keypress", (event) => {
+    if (event.key === "Enter") {
+      sendMessage();
+    }
+  });
+</script>
+</body>
+</html>
